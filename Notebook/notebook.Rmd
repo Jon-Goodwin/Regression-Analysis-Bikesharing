@@ -1,0 +1,16 @@
+---
+title: "Analysis of Bikeshare Data with chatGPT"
+output: html_notebook
+---
+
+# Introduction
+
+The purpose of this analysis is to use chatGPT as an assistant to produce a
+predictive model for the bikeshare data set. 
+
+```{r}
+library(tidyverse)
+library(ISLR2)
+Bikeshare <- tibble(Bikeshare)
+```
+
