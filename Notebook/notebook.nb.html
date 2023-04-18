@@ -1753,18 +1753,213 @@ chatGPT</h1>
 
 
 <!-- rnb-text-begin -->
+<!-- rnb-text-end -->
+<!-- rnb-text-begin -->
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
 <p>The purpose of this analysis is to use chatGPT as an assistant to
-produce a predictive model for the bikeshare data set.</p>
+produce a predictive model for the bikeshare dataset. First we will
+import the Bikeshare dataset into R as well as load packages for
+analysis.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxubGlicmFyeSh0aWR5dmVyc2UpXG5saWJyYXJ5KGNhcmV0KVxubGlicmFyeShoZXJlKVxubGlicmFyeShrbml0cilcbkJpa2VzaGFyZTwtIHJlYWRfY3N2KGhlcmUoXCJpbnB1dHNcXFxcaG91ci5jc3ZcIikpXG5gYGAifQ== -->
+<pre class="r"><code>library(tidyverse)
+library(caret)
+library(here)
+library(knitr)
+Bikeshare&lt;- read_csv(here(&quot;inputs\\hour.csv&quot;))</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>We can do some preliminary analysis of the model and what we might
+expect to be good models of the bike rental counts.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>We have some categorical variables in weathersit, which has 4 factors
+based on worsening weather conditions from clear, to mist, to light
+snow/rain, to heavy snow/rain. And we have a season variable indicating
+the 4 different seasons.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuQmlrZXNoYXJlJGNudCAlPiUgc2QoKVxuQmlrZXNoYXJlJGNudCAlPiUgbWVhbigpXG5gYGAifQ== -->
+<pre class="r"><code>Bikeshare$cnt %&gt;% sd()
+Bikeshare$cnt %&gt;% mean()</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+</div>
+<div id="analysis-with-chatgpt" class="section level1">
+<h1>Analysis with chatGPT</h1>
+<p>For this analysis we are using GPT-4, the most recent and advanced
+model developed by OpenAI. We first establish that chatGPT is familiar
+with the Bikeshare data. And then begin to ask it followup questions in
+order to find potential model choices and what reasons we may choose
+them.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>We then ask chatGPT for suggestions on a predictive model for the
+Bikeshare dataset. chatGPT gives provides a nice descriptive answer to
+the possible models one could use it even suggest packages for
+implementing these different models which are commonly used in R. I
+notice that although chatGPT does mention linear regression, it does not
+mention poisson regression or negative binomial regression which seem to
+fit the distribution of the response variable in this case, a count of
+bike rentals, better then a normally distributed response in linear
+regression.</p>
+<p>chatGPT identifies poisson regression is designed for count data, and
+gives a small example of how to implement it in R, we then ask that
+chatGPT fully implement this model in R</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBMb2FkIG5lY2Vzc2FyeSBsaWJyYXJpZXNcbmxpYnJhcnkodGlkeXZlcnNlKVxuXG4jIExvYWQgdGhlIGRhdGFzZXRcbmRhdGEgPC0gcmVhZF9jc3YoaGVyZShcImlucHV0c1xcXFxkYXkuY3N2XCIpKVxuXG4jIENvbnZlcnQgZGF0ZSB0byBEYXRlIHR5cGVcbmRhdGEkZGF0ZSA8LSBhcy5EYXRlKGRhdGEkZHRlZGF5KVxuXG4jIFJlbW92ZSB1bm5lY2Vzc2FyeSBjb2x1bW5zXG5kYXRhIDwtIGRhdGEgJT4lIHNlbGVjdCgtaW5zdGFudCwgLWR0ZWRheSlcblxuIyBTcGxpdCB0aGUgZGF0YSBpbnRvIHRyYWluaW5nIGFuZCB0ZXN0aW5nIHNldHNcbnNldC5zZWVkKDQyKVxudHJhaW5faW5kaWNlcyA8LSBzYW1wbGUoMTpucm93KGRhdGEpLCBzaXplID0gMC44ICogbnJvdyhkYXRhKSlcbnRyYWluX2RhdGEgPC0gZGF0YVt0cmFpbl9pbmRpY2VzLF1cbnRlc3RfZGF0YSA8LSBkYXRhWy10cmFpbl9pbmRpY2VzLF1cbiMgRml0IFBvaXNzb24gcmVncmVzc2lvbiBtb2RlbFxubW9kZWwgPC0gZ2xtKGNudCB+IC4sIGRhdGEgPSB0cmFpbl9kYXRhLCBmYW1pbHkgPSBwb2lzc29uKCkpXG5zdW1tYXJ5KG1vZGVsKVxuIyBNYWtlIHByZWRpY3Rpb25zXG50ZXN0X2RhdGEkcHJlZF9jb3VudCA8LSBwcmVkaWN0KG1vZGVsLCBuZXdkYXRhID0gdGVzdF9kYXRhLCB0eXBlID0gXCJyZXNwb25zZVwiKVxuIyBDYWxjdWxhdGUgbWVhbiBhYnNvbHV0ZSBlcnJvciAoTUFFKVxubWFlIDwtIG1lYW4oYWJzKHRlc3RfZGF0YSRjbnQgLSB0ZXN0X2RhdGEkcHJlZF9jb3VudCkpXG5jYXQoXCJNZWFuIEFic29sdXRlIEVycm9yIChNQUUpOlwiLCBtYWUsIFwiXFxuXCIpXG5cbiMgQ2FsY3VsYXRlIHJvb3QgbWVhbiBzcXVhcmVkIGVycm9yIChSTVNFKVxucm1zZSA8LSBzcXJ0KG1lYW4oKHRlc3RfZGF0YSRjbnQgLSB0ZXN0X2RhdGEkcHJlZF9jb3VudCleMikpXG5jYXQoXCJSb290IE1lYW4gU3F1YXJlZCBFcnJvciAoUk1TRSk6XCIsIHJtc2UsIFwiXFxuXCIpXG5cbmBgYCJ9 -->
+<pre class="r"><code># Load necessary libraries
+library(tidyverse)
+
+# Load the dataset
+data &lt;- read_csv(here(&quot;inputs\\day.csv&quot;))
+
+# Convert date to Date type
+data$date &lt;- as.Date(data$dteday)
+
+# Remove unnecessary columns
+data &lt;- data %&gt;% select(-instant, -dteday)
+
+# Split the data into training and testing sets
+set.seed(42)
+train_indices &lt;- sample(1:nrow(data), size = 0.8 * nrow(data))
+train_data &lt;- data[train_indices,]
+test_data &lt;- data[-train_indices,]
+# Fit Poisson regression model
+model &lt;- glm(cnt ~ ., data = train_data, family = poisson())
+summary(model)
+# Make predictions
+test_data$pred_count &lt;- predict(model, newdata = test_data, type = &quot;response&quot;)
+# Calculate mean absolute error (MAE)
+mae &lt;- mean(abs(test_data$cnt - test_data$pred_count))
+cat(&quot;Mean Absolute Error (MAE):&quot;, mae, &quot;\n&quot;)
+
+# Calculate root mean squared error (RMSE)
+rmse &lt;- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
+cat(&quot;Root Mean Squared Error (RMSE):&quot;, rmse, &quot;\n&quot;)
+</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Besides adjustments for importing the dataset this code runs
+perfectly well. chatGPT performs a fairly basic validation and test
+split, performs no feature feature selection but all the code runs and
+correctly reports the mean absolute deviation and mean squared
+deviation. chatGPT chose not to standardize the predictors, so I ask why
+that may be?</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>chatGPT gives us some code to standardize the predictors if we want
+and also gives some explanation into why it may be unnecessary in this
+case.</p>
+<p>chatGPT also gives us some advice on how we may improve the model,
+and I ask it to demonstrate how to implement feature engineering in the
+case of the bikeshare dataset for use with our poisson regression
+model</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<p>Some of the suggestions made by chatGPT I don’t think are
+particularly useful to the poisson regression model such as Cyclical
+encoding of the datetime variables.</p>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuc2V0LnNlZWQoNDIpXG50cmFpbl9kYXRhJG1udGhfc2luIDwtIHNpbigyICogcGkgKiB0cmFpbl9kYXRhJG1udGggLyAxMilcbnRyYWluX2RhdGEkbW50aF9jb3MgPC0gY29zKDIgKiBwaSAqIHRyYWluX2RhdGEkbW50aCAvIDEyKVxuXG50cmFpbl9kYXRhJHdlZWtkYXlfc2luIDwtIHNpbigyICogcGkgKiB0cmFpbl9kYXRhJHdlZWtkYXkgLyA3KVxudHJhaW5fZGF0YSR3ZWVrZGF5X2NvcyA8LSBjb3MoMiAqIHBpICogdHJhaW5fZGF0YSR3ZWVrZGF5IC8gNylcblxudGVzdF9kYXRhJG1udGhfc2luIDwtIHNpbigyICogcGkgKiB0ZXN0X2RhdGEkbW50aCAvIDEyKVxudGVzdF9kYXRhJG1udGhfY29zIDwtIGNvcygyICogcGkgKiB0ZXN0X2RhdGEkbW50aCAvIDEyKVxuXG50ZXN0X2RhdGEkd2Vla2RheV9zaW4gPC0gc2luKDIgKiBwaSAqIHRlc3RfZGF0YSR3ZWVrZGF5IC8gNylcbnRlc3RfZGF0YSR3ZWVrZGF5X2NvcyA8LSBjb3MoMiAqIHBpICogdGVzdF9kYXRhJHdlZWtkYXkgLyA3KVxuIyBGaXQgUG9pc3NvbiByZWdyZXNzaW9uIG1vZGVsXG5tb2RlbCA8LSBnbG0oY250IH4gLiAtbW50aCAtd2Vla2RheSwgZGF0YSA9IHRyYWluX2RhdGEsIGZhbWlseSA9IHBvaXNzb24oKSlcbnN1bW1hcnkobW9kZWwpXG5gYGAifQ== -->
+<pre class="r"><code>set.seed(42)
+train_data$mnth_sin &lt;- sin(2 * pi * train_data$mnth / 12)
+train_data$mnth_cos &lt;- cos(2 * pi * train_data$mnth / 12)
+
+train_data$weekday_sin &lt;- sin(2 * pi * train_data$weekday / 7)
+train_data$weekday_cos &lt;- cos(2 * pi * train_data$weekday / 7)
+
+test_data$mnth_sin &lt;- sin(2 * pi * test_data$mnth / 12)
+test_data$mnth_cos &lt;- cos(2 * pi * test_data$mnth / 12)
+
+test_data$weekday_sin &lt;- sin(2 * pi * test_data$weekday / 7)
+test_data$weekday_cos &lt;- cos(2 * pi * test_data$weekday / 7)
+# Fit Poisson regression model
+model &lt;- glm(cnt ~ . -mnth -weekday, data = train_data, family = poisson())
+summary(model)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiXG5DYWxsOlxuZ2xtKGZvcm11bGEgPSBjbnQgfiAuIC0gbW50aCAtIHdlZWtkYXksIGZhbWlseSA9IHBvaXNzb24oKSwgZGF0YSA9IHRyYWluX2RhdGEpXG5cbkRldmlhbmNlIFJlc2lkdWFsczogXG4gICAgTWluICAgICAgIDFRICAgTWVkaWFuICAgICAgIDNRICAgICAgTWF4ICBcbi01MC43MTEgICAtMy43ODYgICAgMS4wOTkgICAgNC4yODUgICAxNC4yNzMgIFxuXG5Db2VmZmljaWVudHM6XG4gICAgICAgICAgICAgIEVzdGltYXRlIFN0ZC4gRXJyb3IgeiB2YWx1ZSBQcig+fHp8KSAgICBcbihJbnRlcmNlcHQpICA0LjU0NWUrMDAgIDIuMjc5ZS0wMSAgMTkuOTM4ICA8IDJlLTE2ICoqKlxuc2Vhc29uICAgICAgIDQuMzkzZS0wMiAgMS4zNjhlLTAzICAzMi4xMTcgIDwgMmUtMTYgKioqXG55ciAgICAgICAgICAtOS45ODZlLTAyICA1LjkyM2UtMDMgLTE2Ljg2MCAgPCAyZS0xNiAqKipcbmhvbGlkYXkgICAgIC0xLjUzNGUtMDIgIDQuNDYwZS0wMyAgLTMuNDQwIDAuMDAwNTgxICoqKlxud29ya2luZ2RheSAgLTIuOTk1ZS0wMiAgMy4wMzZlLTAzICAtOS44NjUgIDwgMmUtMTYgKioqXG53ZWF0aGVyc2l0ICAtMi41NTJlLTAyICAxLjY1NmUtMDMgLTE1LjQxMiAgPCAyZS0xNiAqKipcbnRlbXAgICAgICAgICAxLjUxM2UtMDEgIDIuMzkzZS0wMiAgIDYuMzI0IDIuNTVlLTEwICoqKlxuYXRlbXAgICAgICAgIDIuMzI3ZS0wMSAgMi41MzJlLTAyICAgOS4xODkgIDwgMmUtMTYgKioqXG5odW0gICAgICAgICAgNC41NDNlLTAyICA2LjQzMmUtMDMgICA3LjA2MyAxLjYzZS0xMiAqKipcbndpbmRzcGVlZCAgIC0xLjQxM2UtMDIgIDkuMTAyZS0wMyAgLTEuNTUzIDAuMTIwNDkwICAgIFxuY2FzdWFsICAgICAgIDEuNzQ2ZS0wNCAgMS43MzJlLTA2IDEwMC44MTcgIDwgMmUtMTYgKioqXG5yZWdpc3RlcmVkICAgMi4zNzNlLTA0ICAxLjAyOGUtMDYgMjMwLjgxMiAgPCAyZS0xNiAqKipcbmRhdGUgICAgICAgICAxLjY1NGUtMDQgIDEuNTE4ZS0wNSAgMTAuODkyICA8IDJlLTE2ICoqKlxubW50aF9zaW4gICAgIDkuNjYwZS0wMiAgMS43OTRlLTAzICA1My44MzAgIDwgMmUtMTYgKioqXG5tbnRoX2NvcyAgICAgMS40MDllLTAyICAyLjA0MmUtMDMgICA2Ljg5OSA1LjI0ZS0xMiAqKipcbndlZWtkYXlfc2luIC03LjIxM2UtMDMgIDEuMDM3ZS0wMyAgLTYuOTU4IDMuNDRlLTEyICoqKlxud2Vla2RheV9jb3MgIDIuNTY0ZS0wMiAgMS40MzRlLTAzICAxNy44NzMgIDwgMmUtMTYgKioqXG4tLS1cblNpZ25pZi4gY29kZXM6ICAwIOKAmCoqKuKAmSAwLjAwMSDigJgqKuKAmSAwLjAxIOKAmCrigJkgMC4wNSDigJgu4oCZIDAuMSDigJgg4oCZIDFcblxuKERpc3BlcnNpb24gcGFyYW1ldGVyIGZvciBwb2lzc29uIGZhbWlseSB0YWtlbiB0byBiZSAxKVxuXG4gICAgTnVsbCBkZXZpYW5jZTogNTIzOTY2ICBvbiA1ODMgIGRlZ3JlZXMgb2YgZnJlZWRvbVxuUmVzaWR1YWwgZGV2aWFuY2U6ICAzMDI5MiAgb24gNTY3ICBkZWdyZWVzIG9mIGZyZWVkb21cbkFJQzogMzYyNDJcblxuTnVtYmVyIG9mIEZpc2hlciBTY29yaW5nIGl0ZXJhdGlvbnM6IDRcbiJ9 -->
+<pre><code>
+Call:
+glm(formula = cnt ~ . - mnth - weekday, family = poisson(), data = train_data)
+
+Deviance Residuals: 
+    Min       1Q   Median       3Q      Max  
+-50.711   -3.786    1.099    4.285   14.273  
+
+Coefficients:
+              Estimate Std. Error z value Pr(&gt;|z|)    
+(Intercept)  4.545e+00  2.279e-01  19.938  &lt; 2e-16 ***
+season       4.393e-02  1.368e-03  32.117  &lt; 2e-16 ***
+yr          -9.986e-02  5.923e-03 -16.860  &lt; 2e-16 ***
+holiday     -1.534e-02  4.460e-03  -3.440 0.000581 ***
+workingday  -2.995e-02  3.036e-03  -9.865  &lt; 2e-16 ***
+weathersit  -2.552e-02  1.656e-03 -15.412  &lt; 2e-16 ***
+temp         1.513e-01  2.393e-02   6.324 2.55e-10 ***
+atemp        2.327e-01  2.532e-02   9.189  &lt; 2e-16 ***
+hum          4.543e-02  6.432e-03   7.063 1.63e-12 ***
+windspeed   -1.413e-02  9.102e-03  -1.553 0.120490    
+casual       1.746e-04  1.732e-06 100.817  &lt; 2e-16 ***
+registered   2.373e-04  1.028e-06 230.812  &lt; 2e-16 ***
+date         1.654e-04  1.518e-05  10.892  &lt; 2e-16 ***
+mnth_sin     9.660e-02  1.794e-03  53.830  &lt; 2e-16 ***
+mnth_cos     1.409e-02  2.042e-03   6.899 5.24e-12 ***
+weekday_sin -7.213e-03  1.037e-03  -6.958 3.44e-12 ***
+weekday_cos  2.564e-02  1.434e-03  17.873  &lt; 2e-16 ***
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for poisson family taken to be 1)
+
+    Null deviance: 523966  on 583  degrees of freedom
+Residual deviance:  30292  on 567  degrees of freedom
+AIC: 36242
+
+Number of Fisher Scoring iterations: 4</code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBNYWtlIHByZWRpY3Rpb25zXG50ZXN0X2RhdGEkcHJlZF9jb3VudCA8LSBwcmVkaWN0KG1vZGVsLCBuZXdkYXRhID0gdGVzdF9kYXRhLCB0eXBlID0gXCJyZXNwb25zZVwiKVxuIyBDYWxjdWxhdGUgbWVhbiBhYnNvbHV0ZSBlcnJvciAoTUFFKVxubWFlIDwtIG1lYW4oYWJzKHRlc3RfZGF0YSRjbnQgLSB0ZXN0X2RhdGEkcHJlZF9jb3VudCkpXG5jYXQoXCJNZWFuIEFic29sdXRlIEVycm9yIChNQUUpOlwiLCBtYWUsIFwiXFxuXCIpXG5gYGAifQ== -->
+<pre class="r"><code># Make predictions
+test_data$pred_count &lt;- predict(model, newdata = test_data, type = &quot;response&quot;)
+# Calculate mean absolute error (MAE)
+mae &lt;- mean(abs(test_data$cnt - test_data$pred_count))
+cat(&quot;Mean Absolute Error (MAE):&quot;, mae, &quot;\n&quot;)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiTWVhbiBBYnNvbHV0ZSBFcnJvciAoTUFFKTogMzY0LjMyODggXG4ifQ== -->
+<pre><code>Mean Absolute Error (MAE): 364.3288 </code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxuIyBDYWxjdWxhdGUgcm9vdCBtZWFuIHNxdWFyZWQgZXJyb3IgKFJNU0UpXG5ybXNlIDwtIHNxcnQobWVhbigodGVzdF9kYXRhJGNudCAtIHRlc3RfZGF0YSRwcmVkX2NvdW50KV4yKSlcbmNhdChcIlJvb3QgTWVhbiBTcXVhcmVkIEVycm9yIChSTVNFKTpcIiwgcm1zZSwgXCJcXG5cIilcbmBgYCJ9 -->
+<pre class="r"><code># Calculate root mean squared error (RMSE)
+rmse &lt;- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
+cat(&quot;Root Mean Squared Error (RMSE):&quot;, rmse, &quot;\n&quot;)</code></pre>
+<!-- rnb-source-end -->
+<!-- rnb-output-begin eyJkYXRhIjoiUm9vdCBNZWFuIFNxdWFyZWQgRXJyb3IgKFJNU0UpOiA0MjcuNjg2IFxuIn0= -->
+<pre><code>Root Mean Squared Error (RMSE): 427.686 </code></pre>
+<!-- rnb-output-end -->
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+<!-- rnb-text-end -->
 </div>
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIkFuYWx5c2lzIG9mIEJpa2VzaGFyZSBEYXRhIHdpdGggY2hhdEdQVCINCm91dHB1dDogaHRtbF9ub3RlYm9vaw0KLS0tDQoNCiMgSW50cm9kdWN0aW9uDQoNClRoZSBwdXJwb3NlIG9mIHRoaXMgYW5hbHlzaXMgaXMgdG8gdXNlIGNoYXRHUFQgYXMgYW4gYXNzaXN0YW50IHRvIHByb2R1Y2UgYQ0KcHJlZGljdGl2ZSBtb2RlbCBmb3IgdGhlIGJpa2VzaGFyZSBkYXRhIHNldC4gDQoNCmBgYHtyfQ0KbGlicmFyeSh0aWR5dmVyc2UpDQpsaWJyYXJ5KElTTFIyKQ0KQmlrZXNoYXJlIDwtIHRpYmJsZShCaWtlc2hhcmUpDQpgYGANCg0K</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIkFuYWx5c2lzIG9mIEJpa2VzaGFyZSBEYXRhIHdpdGggY2hhdEdQVCINCm91dHB1dDoNCiAgaHRtbF9kb2N1bWVudDoNCiAgICBkZl9wcmludDogcGFnZWQNCi0tLQ0KYGBge3Igc2V0dXAsIGluY2x1ZGU9RkFMU0V9DQprbml0cjo6b3B0c19jaHVuayRzZXQobWVzc2FnZSA9IEYsDQogICAgICAgICAgICAgICAgICAgICAgZXJyb3IgPSBGLCB3YXJuaW5nID0gRikNCmBgYA0KIyBJbnRyb2R1Y3Rpb24NCg0KVGhlIHB1cnBvc2Ugb2YgdGhpcyBhbmFseXNpcyBpcyB0byB1c2UgY2hhdEdQVCBhcyBhbiBhc3Npc3RhbnQgdG8gcHJvZHVjZSBhDQpwcmVkaWN0aXZlIG1vZGVsIGZvciB0aGUgYmlrZXNoYXJlIGRhdGFzZXQuIEZpcnN0IHdlIHdpbGwgaW1wb3J0IHRoZSBCaWtlc2hhcmUNCmRhdGFzZXQgaW50byBSIGFzIHdlbGwgYXMgbG9hZCBwYWNrYWdlcyBmb3IgYW5hbHlzaXMuDQoNCmBgYHtyIGVjaG8gPSBUUlVFLCByZXN1bHRzID0gJ2hpZGUnfQ0KbGlicmFyeSh0aWR5dmVyc2UpDQpsaWJyYXJ5KGNhcmV0KQ0KbGlicmFyeShoZXJlKQ0KbGlicmFyeShrbml0cikNCkJpa2VzaGFyZTwtIHJlYWRfY3N2KGhlcmUoImlucHV0c1xcaG91ci5jc3YiKSkNCmBgYA0KDQpXZSBjYW4gZG8gc29tZSBwcmVsaW1pbmFyeSBhbmFseXNpcyBvZiB0aGUgbW9kZWwgYW5kIHdoYXQgd2UgbWlnaHQgZXhwZWN0IHRvIGJlDQpnb29kIG1vZGVscyBvZiB0aGUgYmlrZSByZW50YWwgY291bnRzLg0KDQpgYGB7ciBlY2hvID0gRkFMU0V9DQpoZWFkKEJpa2VzaGFyZSkNCmBgYA0KDQpXZSBoYXZlIHNvbWUgY2F0ZWdvcmljYWwgdmFyaWFibGVzIGluIHdlYXRoZXJzaXQsIHdoaWNoIGhhcyA0IGZhY3RvcnMgYmFzZWQgb24gd29yc2VuaW5nIHdlYXRoZXIgY29uZGl0aW9ucyBmcm9tIGNsZWFyLCB0byBtaXN0LCB0byBsaWdodCBzbm93L3JhaW4sIHRvIGhlYXZ5DQpzbm93L3JhaW4uIEFuZCB3ZSBoYXZlIGEgc2Vhc29uIHZhcmlhYmxlIGluZGljYXRpbmcgdGhlIDQgZGlmZmVyZW50IHNlYXNvbnMuDQoNCmBgYHtyfQ0KQmlrZXNoYXJlJGNudCAlPiUgc2QoKQ0KQmlrZXNoYXJlJGNudCAlPiUgbWVhbigpDQpgYGANCg0KIyBBbmFseXNpcyB3aXRoIGNoYXRHUFQNCg0KICBGb3IgdGhpcyBhbmFseXNpcyB3ZSBhcmUgdXNpbmcgR1BULTQsIHRoZSBtb3N0IHJlY2VudCBhbmQgYWR2YW5jZWQgbW9kZWwgZGV2ZWxvcGVkIGJ5IE9wZW5BSS4gV2UgZmlyc3QgZXN0YWJsaXNoIHRoYXQgY2hhdEdQVCBpcyBmYW1pbGlhciB3aXRoIHRoZSBCaWtlc2hhcmUgZGF0YS4gQW5kIHRoZW4gYmVnaW4gdG8gYXNrIGl0IGZvbGxvd3VwIHF1ZXN0aW9ucyBpbiBvcmRlciB0byBmaW5kIHBvdGVudGlhbCBtb2RlbCBjaG9pY2VzIGFuZA0Kd2hhdCByZWFzb25zIHdlIG1heSBjaG9vc2UgdGhlbS4NCg0KYGBge3IsIGVjaG8gPSBGQUxTRSwgb3V0LndpZHRoID0gJzcwJScsIGZpZy5hbGlnbiA9ICdjZW50ZXInfQ0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjEucG5nIikpDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uMmEucG5nIikpDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uMmIucG5nIikpDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uM2EucG5nIikpDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uM2IucG5nIikpDQpgYGANCg0KDQoNCldlIHRoZW4gYXNrIGNoYXRHUFQgZm9yIHN1Z2dlc3Rpb25zIG9uIGEgcHJlZGljdGl2ZSBtb2RlbCBmb3IgdGhlIEJpa2VzaGFyZQ0KZGF0YXNldC4gY2hhdEdQVCBnaXZlcyBwcm92aWRlcyBhIG5pY2UgZGVzY3JpcHRpdmUgYW5zd2VyIHRvIHRoZSBwb3NzaWJsZSBtb2RlbHMgb25lDQpjb3VsZCB1c2UgaXQgZXZlbiBzdWdnZXN0IHBhY2thZ2VzIGZvciBpbXBsZW1lbnRpbmcgdGhlc2UgZGlmZmVyZW50IG1vZGVscw0Kd2hpY2ggYXJlIGNvbW1vbmx5IHVzZWQgaW4gUi4gSSBub3RpY2UgdGhhdCBhbHRob3VnaCBjaGF0R1BUDQpkb2VzIG1lbnRpb24gbGluZWFyIHJlZ3Jlc3Npb24sIGl0IGRvZXMgbm90IG1lbnRpb24gcG9pc3NvbiByZWdyZXNzaW9uIG9yIG5lZ2F0aXZlIGJpbm9taWFsIHJlZ3Jlc3Npb24gd2hpY2ggc2VlbSB0byBmaXQgdGhlIGRpc3RyaWJ1dGlvbiBvZiB0aGUgcmVzcG9uc2UgdmFyaWFibGUgaW4gdGhpcyBjYXNlLCBhIGNvdW50IG9mIGJpa2UgcmVudGFscywgYmV0dGVyIHRoZW4gYSBub3JtYWxseSBkaXN0cmlidXRlZCByZXNwb25zZQ0KaW4gbGluZWFyIHJlZ3Jlc3Npb24uDQoNCmNoYXRHUFQgaWRlbnRpZmllcyBwb2lzc29uIHJlZ3Jlc3Npb24gaXMgZGVzaWduZWQgZm9yIGNvdW50IGRhdGEsIGFuZCBnaXZlcyBhDQpzbWFsbCBleGFtcGxlIG9mIGhvdyB0byBpbXBsZW1lbnQgaXQgaW4gUiwgd2UgdGhlbiBhc2sgdGhhdCBjaGF0R1BUIGZ1bGx5DQppbXBsZW1lbnQgdGhpcyBtb2RlbCBpbiBSDQoNCmBgYHtyLCBlY2hvID0gRkFMU0UsIG91dC53aWR0aCA9ICc3MCUnLCBmaWcuYWxpZ24gPSAnY2VudGVyJ30NCg0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjRhLnBuZyIpKQ0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjRiLnBuZyIpKQ0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjRjLnBuZyIpKQ0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjRkLnBuZyIpKQ0KDQoNCmBgYA0KDQpgYGB7cn0NCiMgTG9hZCBuZWNlc3NhcnkgbGlicmFyaWVzDQpsaWJyYXJ5KHRpZHl2ZXJzZSkNCg0KIyBMb2FkIHRoZSBkYXRhc2V0DQpkYXRhIDwtIHJlYWRfY3N2KGhlcmUoImlucHV0c1xcZGF5LmNzdiIpKQ0KDQojIENvbnZlcnQgZGF0ZSB0byBEYXRlIHR5cGUNCmRhdGEkZGF0ZSA8LSBhcy5EYXRlKGRhdGEkZHRlZGF5KQ0KDQojIFJlbW92ZSB1bm5lY2Vzc2FyeSBjb2x1bW5zDQpkYXRhIDwtIGRhdGEgJT4lIHNlbGVjdCgtaW5zdGFudCwgLWR0ZWRheSkNCg0KIyBTcGxpdCB0aGUgZGF0YSBpbnRvIHRyYWluaW5nIGFuZCB0ZXN0aW5nIHNldHMNCnNldC5zZWVkKDQyKQ0KdHJhaW5faW5kaWNlcyA8LSBzYW1wbGUoMTpucm93KGRhdGEpLCBzaXplID0gMC44ICogbnJvdyhkYXRhKSkNCnRyYWluX2RhdGEgPC0gZGF0YVt0cmFpbl9pbmRpY2VzLF0NCnRlc3RfZGF0YSA8LSBkYXRhWy10cmFpbl9pbmRpY2VzLF0NCiMgRml0IFBvaXNzb24gcmVncmVzc2lvbiBtb2RlbA0KbW9kZWwgPC0gZ2xtKGNudCB+IC4sIGRhdGEgPSB0cmFpbl9kYXRhLCBmYW1pbHkgPSBwb2lzc29uKCkpDQpzdW1tYXJ5KG1vZGVsKQ0KIyBNYWtlIHByZWRpY3Rpb25zDQp0ZXN0X2RhdGEkcHJlZF9jb3VudCA8LSBwcmVkaWN0KG1vZGVsLCBuZXdkYXRhID0gdGVzdF9kYXRhLCB0eXBlID0gInJlc3BvbnNlIikNCiMgQ2FsY3VsYXRlIG1lYW4gYWJzb2x1dGUgZXJyb3IgKE1BRSkNCm1hZSA8LSBtZWFuKGFicyh0ZXN0X2RhdGEkY250IC0gdGVzdF9kYXRhJHByZWRfY291bnQpKQ0KY2F0KCJNZWFuIEFic29sdXRlIEVycm9yIChNQUUpOiIsIG1hZSwgIlxuIikNCg0KIyBDYWxjdWxhdGUgcm9vdCBtZWFuIHNxdWFyZWQgZXJyb3IgKFJNU0UpDQpybXNlIDwtIHNxcnQobWVhbigodGVzdF9kYXRhJGNudCAtIHRlc3RfZGF0YSRwcmVkX2NvdW50KV4yKSkNCmNhdCgiUm9vdCBNZWFuIFNxdWFyZWQgRXJyb3IgKFJNU0UpOiIsIHJtc2UsICJcbiIpDQoNCmBgYA0KDQpCZXNpZGVzIGFkanVzdG1lbnRzIGZvciBpbXBvcnRpbmcgdGhlIGRhdGFzZXQgdGhpcyBjb2RlIHJ1bnMgcGVyZmVjdGx5IHdlbGwuDQpjaGF0R1BUIHBlcmZvcm1zIGEgZmFpcmx5IGJhc2ljIHZhbGlkYXRpb24gYW5kIHRlc3Qgc3BsaXQsIHBlcmZvcm1zIG5vIGZlYXR1cmUNCmZlYXR1cmUgc2VsZWN0aW9uIGJ1dCBhbGwgdGhlIGNvZGUgcnVucyBhbmQgY29ycmVjdGx5IHJlcG9ydHMgdGhlIG1lYW4gYWJzb2x1dGUgZGV2aWF0aW9uIGFuZCBtZWFuIHNxdWFyZWQgZGV2aWF0aW9uLiBjaGF0R1BUIGNob3NlIG5vdCB0byBzdGFuZGFyZGl6ZSB0aGUNCnByZWRpY3RvcnMsIHNvIEkgYXNrIHdoeSB0aGF0IG1heSBiZT8NCg0KYGBge3IsIGVjaG8gPSBGQUxTRSwgb3V0LndpZHRoID0gJzcwJScsIGZpZy5hbGlnbiA9ICdjZW50ZXInfQ0KDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uNWEucG5nIikpDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uNWIucG5nIikpDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uNmEucG5nIikpDQprbml0cjo6aW5jbHVkZV9ncmFwaGljcyhoZXJlKCJpbnB1dHNcXFF1ZXN0aW9uNmIucG5nIikpDQoNCmBgYA0KDQpjaGF0R1BUIGdpdmVzIHVzIHNvbWUgY29kZSB0byBzdGFuZGFyZGl6ZSB0aGUgcHJlZGljdG9ycyBpZiB3ZSB3YW50IGFuZCBhbHNvDQpnaXZlcyBzb21lIGV4cGxhbmF0aW9uIGludG8gd2h5IGl0IG1heSBiZSB1bm5lY2Vzc2FyeSBpbiB0aGlzIGNhc2UuDQoNCmNoYXRHUFQgYWxzbyBnaXZlcyB1cyBzb21lIGFkdmljZSBvbiBob3cgd2UgbWF5IGltcHJvdmUgdGhlIG1vZGVsLCBhbmQgSSBhc2sgaXQNCnRvIGRlbW9uc3RyYXRlIGhvdyB0byBpbXBsZW1lbnQgZmVhdHVyZSBlbmdpbmVlcmluZyBpbiB0aGUgY2FzZSBvZiB0aGUgYmlrZXNoYXJlIGRhdGFzZXQgZm9yIHVzZSB3aXRoIG91ciBwb2lzc29uIHJlZ3Jlc3Npb24gbW9kZWwNCg0KYGBge3IsIGVjaG8gPSBGQUxTRSwgb3V0LndpZHRoID0gJzcwJScsIGZpZy5hbGlnbiA9ICdjZW50ZXInfQ0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjdhLnBuZyIpKQ0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjdiLnBuZyIpKQ0Ka25pdHI6OmluY2x1ZGVfZ3JhcGhpY3MoaGVyZSgiaW5wdXRzXFxRdWVzdGlvbjdjLnBuZyIpKQ0KDQpgYGANCg0KU29tZSBvZiB0aGUgc3VnZ2VzdGlvbnMgbWFkZSBieSBjaGF0R1BUIEkgZG9uJ3QgdGhpbmsgYXJlIHBhcnRpY3VsYXJseSB1c2VmdWwgdG8NCnRoZSBwb2lzc29uIHJlZ3Jlc3Npb24gbW9kZWwgc3VjaCBhcyBDeWNsaWNhbCBlbmNvZGluZyBvZiB0aGUgZGF0ZXRpbWUgdmFyaWFibGVzLg0KDQpgYGB7cn0NCnNldC5zZWVkKDQyKQ0KdHJhaW5fZGF0YSRtbnRoX3NpbiA8LSBzaW4oMiAqIHBpICogdHJhaW5fZGF0YSRtbnRoIC8gMTIpDQp0cmFpbl9kYXRhJG1udGhfY29zIDwtIGNvcygyICogcGkgKiB0cmFpbl9kYXRhJG1udGggLyAxMikNCg0KdHJhaW5fZGF0YSR3ZWVrZGF5X3NpbiA8LSBzaW4oMiAqIHBpICogdHJhaW5fZGF0YSR3ZWVrZGF5IC8gNykNCnRyYWluX2RhdGEkd2Vla2RheV9jb3MgPC0gY29zKDIgKiBwaSAqIHRyYWluX2RhdGEkd2Vla2RheSAvIDcpDQoNCnRlc3RfZGF0YSRtbnRoX3NpbiA8LSBzaW4oMiAqIHBpICogdGVzdF9kYXRhJG1udGggLyAxMikNCnRlc3RfZGF0YSRtbnRoX2NvcyA8LSBjb3MoMiAqIHBpICogdGVzdF9kYXRhJG1udGggLyAxMikNCg0KdGVzdF9kYXRhJHdlZWtkYXlfc2luIDwtIHNpbigyICogcGkgKiB0ZXN0X2RhdGEkd2Vla2RheSAvIDcpDQp0ZXN0X2RhdGEkd2Vla2RheV9jb3MgPC0gY29zKDIgKiBwaSAqIHRlc3RfZGF0YSR3ZWVrZGF5IC8gNykNCiMgRml0IFBvaXNzb24gcmVncmVzc2lvbiBtb2RlbA0KbW9kZWwgPC0gZ2xtKGNudCB+IC4gLW1udGggLXdlZWtkYXksIGRhdGEgPSB0cmFpbl9kYXRhLCBmYW1pbHkgPSBwb2lzc29uKCkpDQpzdW1tYXJ5KG1vZGVsKQ0KIyBNYWtlIHByZWRpY3Rpb25zDQp0ZXN0X2RhdGEkcHJlZF9jb3VudCA8LSBwcmVkaWN0KG1vZGVsLCBuZXdkYXRhID0gdGVzdF9kYXRhLCB0eXBlID0gInJlc3BvbnNlIikNCiMgQ2FsY3VsYXRlIG1lYW4gYWJzb2x1dGUgZXJyb3IgKE1BRSkNCm1hZSA8LSBtZWFuKGFicyh0ZXN0X2RhdGEkY250IC0gdGVzdF9kYXRhJHByZWRfY291bnQpKQ0KY2F0KCJNZWFuIEFic29sdXRlIEVycm9yIChNQUUpOiIsIG1hZSwgIlxuIikNCg0KIyBDYWxjdWxhdGUgcm9vdCBtZWFuIHNxdWFyZWQgZXJyb3IgKFJNU0UpDQpybXNlIDwtIHNxcnQobWVhbigodGVzdF9kYXRhJGNudCAtIHRlc3RfZGF0YSRwcmVkX2NvdW50KV4yKSkNCmNhdCgiUm9vdCBNZWFuIFNxdWFyZWQgRXJyb3IgKFJNU0UpOiIsIHJtc2UsICJcbiIpDQoNCmBgYA0KDQo=</div>
 
 
 
