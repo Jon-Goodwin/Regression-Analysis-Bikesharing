@@ -16,86 +16,87 @@ dataset into R as well as load packages for analysis.
 
 ```{r echo = TRUE, results = 'hide'}
 library(tidyverse)
-library(caret)
+library(car)
+library (boot)
 library(here)
 library(knitr)
-Bikeshare<- read_csv(here("inputs\\hour.csv"))
+library(glmnet)
+data <- read_csv(here("inputs\\day.csv"))
 ```
 
-We can do some preliminary analysis of the model and what we might expect to be
-good models of the bike rental counts.
+# Data Exploration
+
+We can do some preliminary analysis of the data to see if particular models may
+be more appropriate then others.
 
 ```{r echo = FALSE}
-head(Bikeshare)
+head(data)
 ```
 
 We have some categorical variables in weathersit, which has 4 factors based on worsening weather conditions from clear, to mist, to light snow/rain, to heavy
 snow/rain. And we have a season variable indicating the 4 different seasons.
 
 ```{r}
-Bikeshare$cnt %>% sd()
-Bikeshare$cnt %>% mean()
+data %>%
+  ggplot(aes(x = cnt)) + geom_histogram()
 ```
 
-# Analysis with chatGPT
-
-  For this analysis we are using GPT-4, the most recent and advanced model developed by OpenAI. We first establish that chatGPT is familiar with the Bikeshare data. And then begin to ask it followup questions in order to find potential model choices and
-what reasons we may choose them.
-
-```{r, echo = FALSE, out.width = '70%', fig.align = 'center'}
-knitr::include_graphics(here("inputs\\Question1.png"))
-knitr::include_graphics(here("inputs\\Question2a.png"))
-knitr::include_graphics(here("inputs\\Question2b.png"))
-knitr::include_graphics(here("inputs\\Question3a.png"))
-knitr::include_graphics(here("inputs\\Question3b.png"))
-```
-
-
-
-We then ask chatGPT for suggestions on a predictive model for the Bikeshare
-dataset. chatGPT gives provides a nice descriptive answer to the possible models one
-could use it even suggest packages for implementing these different models
-which are commonly used in R. I notice that although chatGPT
-does mention linear regression, it does not mention poisson regression or negative binomial regression which seem to fit the distribution of the response variable in this case, a count of bike rentals, better then a normally distributed response
-in linear regression.
-
-chatGPT identifies poisson regression is designed for count data, and gives a
-small example of how to implement it in R, we then ask that chatGPT fully
-implement this model in R
-
-```{r, echo = FALSE, out.width = '70%', fig.align = 'center'}
-
-knitr::include_graphics(here("inputs\\Question4a.png"))
-knitr::include_graphics(here("inputs\\Question4b.png"))
-knitr::include_graphics(here("inputs\\Question4c.png"))
-knitr::include_graphics(here("inputs\\Question4d.png"))
-
-
-```
+The response in this case is a count of bicycles rented for the day. Count data
+is most often represented by a poisson or negative/positive binomial distribution. The difference between these 2 distributions is that poisson regression is used
+for count where the mean is roughly equal to the standard deviation. We check
+to see whether this holds for the bikeshare data.
 
 ```{r}
-# Load necessary libraries
-library(tidyverse)
+data$cnt %>% sd()
+data$cnt %>% mean()
+```
 
-# Load the dataset
-data <- read_csv(here("inputs\\day.csv"))
+The mean and standard deviation in the sample are close supporting the idea of poisson regression. We can also make a distribution plot of the counts against
+a poisson distribution
 
+```{r}
+data %>%
+  ggplot(aes(sample = cnt))+stat_qq(distribution = stats::qpois, dparams = list(lambda = mean(data$cnt)))+ stat_qq_line(distribution = stats::qpois, dparams = list(lambda = mean(data$cnt))) + 
+  ylab("Data Quantiles") +
+  xlab("Poisson Quantiles") +
+  theme(axis.title.y = element_text(size = rel(1.5), angle = 90)) +
+  theme(axis.title.x = element_text(size = rel(1.5), angle = 00))
+```
+
+The distribution and parameters estimates seem roughly poisson so we will
+proceed with building a poisson regression model.
+
+# Model Building
+
+First we can try a basic 80/20 validation and test split and fit the full poisson
+regression model. We make slight adjustments to the features to ensure
+dates are encoded as datetime objects and remove variables like instant which
+just refer to the observation number. Then compute the mean absolute and mean
+square errors on the test data.
+
+```{r}
 # Convert date to Date type
 data$date <- as.Date(data$dteday)
 
 # Remove unnecessary columns
-data <- data %>% select(-instant, -dteday)
+data <- data %>% dplyr::select(-instant, -dteday, -casual, -registered)
+```
+
+```{r}
 
 # Split the data into training and testing sets
-set.seed(42)
+set.seed(1)
 train_indices <- sample(1:nrow(data), size = 0.8 * nrow(data))
 train_data <- data[train_indices,]
 test_data <- data[-train_indices,]
+
 # Fit Poisson regression model
 model <- glm(cnt ~ ., data = train_data, family = poisson())
 summary(model)
+
 # Make predictions
 test_data$pred_count <- predict(model, newdata = test_data, type = "response")
+
 # Calculate mean absolute error (MAE)
 mae <- mean(abs(test_data$cnt - test_data$pred_count))
 cat("Mean Absolute Error (MAE):", mae, "\n")
@@ -106,38 +107,12 @@ cat("Root Mean Squared Error (RMSE):", rmse, "\n")
 
 ```
 
-Besides adjustments for importing the dataset this code runs perfectly well.
-chatGPT performs a fairly basic validation and test split, performs no feature
-feature selection but all the code runs and correctly reports the mean absolute deviation and mean squared deviation. chatGPT chose not to standardize the
-predictors, so I ask why that may be?
+Next we will do some additional feature engineering. We will encode the datetime
+as a cyclical variable using sine and cosine functions. This will establish that
+for instance January is closer to December then it is to April.
 
-```{r, echo = FALSE, out.width = '70%', fig.align = 'center'}
-
-knitr::include_graphics(here("inputs\\Question5a.png"))
-knitr::include_graphics(here("inputs\\Question5b.png"))
-knitr::include_graphics(here("inputs\\Question6a.png"))
-knitr::include_graphics(here("inputs\\Question6b.png"))
-
-```
-
-chatGPT gives us some code to standardize the predictors if we want and also
-gives some explanation into why it may be unnecessary in this case.
-
-chatGPT also gives us some advice on how we may improve the model, and I ask it
-to demonstrate how to implement feature engineering in the case of the bikeshare dataset for use with our poisson regression model
-
-```{r, echo = FALSE, out.width = '70%', fig.align = 'center'}
-knitr::include_graphics(here("inputs\\Question7a.png"))
-knitr::include_graphics(here("inputs\\Question7b.png"))
-knitr::include_graphics(here("inputs\\Question7c.png"))
-
-```
-
-The cyclical encoding helps to ensure that our model recognizes that for example
-January is closer to December then it is to April. It results in a minor improvement in the test performance MSE and MAE of our model.
 
 ```{r}
-set.seed(42)
 train_data$mnth_sin <- sin(2 * pi * train_data$mnth / 12)
 train_data$mnth_cos <- cos(2 * pi * train_data$mnth / 12)
 
@@ -149,11 +124,27 @@ test_data$mnth_cos <- cos(2 * pi * test_data$mnth / 12)
 
 test_data$weekday_sin <- sin(2 * pi * test_data$weekday / 7)
 test_data$weekday_cos <- cos(2 * pi * test_data$weekday / 7)
+
+data$mnth_sin <- sin(2 * pi * data$mnth / 12)
+data$mnth_cos <- cos(2 * pi * data$mnth / 12)
+
+data$weekday_sin <- sin(2 * pi * data$weekday / 7)
+data$weekday_cos <- cos(2 * pi * data$weekday / 7)
+```
+
+We also have some interactions among these predictors, for example the combination of cold temperatures and rain/snow is probably less desirable then just a cold or
+just a rainy day for riding a bike. We'll also add non linear terms for the continuous variables such as temperature, humidity, and windspeed. And remove
+atemp, season, registered and casual. Since atemp and season should be captured
+by the temp and date/month predictors and registered, casual are just 2 parts of
+the response.
+
+```{r}
 # Fit Poisson regression model
-model <- glm(cnt ~ . -mnth -weekday, data = train_data, family = poisson())
+model <- glm(cnt ~ . + weathersit*temp, data = train_data, family = poisson())
 summary(model)
 # Make predictions
 test_data$pred_count <- predict(model, newdata = test_data, type = "response")
+
 # Calculate mean absolute error (MAE)
 mae <- mean(abs(test_data$cnt - test_data$pred_count))
 cat("Mean Absolute Error (MAE):", mae, "\n")
@@ -161,6 +152,123 @@ cat("Mean Absolute Error (MAE):", mae, "\n")
 # Calculate root mean squared error (RMSE)
 rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
 cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+```
+
+We get a slight decrease in both the absolute and square error in the test. We
+can now test create some additional features with the model through the residual
+plots.
+
+```{r}
+# Creating a dataframe containing residuals and fitted values
+df <- broom::augment(model)
+
+# Residuals vs. fitted values plot
+ggplot(df, aes(x = .fitted, y = .resid/sqrt(.fitted))) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Residuals vs. Fitted Values", x = "Fitted Values", y = "Pearson Residuals")
+
+# Residuals vs. continuous predictors
+resid.check <- function(data, mapping) {
+  ggplot(data, mapping) +
+    geom_point(alpha = 0.5) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    labs(title = "Residuals Plot", x = "", y = "Pearson Residuals") +
+    geom_smooth()
+}
+resid.check(df, aes(x = temp, y = .resid/sqrt(.fitted)))
+resid.check(df, aes(x = hum, y = .resid/sqrt(.fitted)))
+resid.check(df, aes(x = windspeed, y = .resid/sqrt(.fitted)))
+```
+
+We check our continuous predictors and find a definite pattern within the temp
+predictor, suggesting there is a relationship not being captured by the model.
+We can adjust for this by adding transformations of temp.
+
+```{r}
+# Fit Poisson regression model
+model <- glm(cnt ~ . - temp + weathersit*temp + poly(temp,3), data = train_data, family = poisson())
+summary(model)
+# Make predictions
+test_data$pred_count <- predict(model, newdata = test_data, type = "response")
+
+# Calculate mean absolute error (MAE)
+mae <- mean(abs(test_data$cnt - test_data$pred_count))
+cat("Mean Absolute Error (MAE):", mae, "\n")
+
+# Calculate root mean squared error (RMSE)
+rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+```
+
+We see another reduction in error on the test set. We can check the residual
+plots again.
+
+```{r}
+df <- broom::augment(model)
+resid.check(df, aes(x = temp, y = .resid/sqrt(.fitted)))
+```
+
+Now we get a much more randomly scattered plot of the residuals after the
+transformation. We can add these additional predictors directly into the dataset
+
+```{r}
+train_data <- train_data %>% dplyr::mutate(temp_2 = temp^2, temp_3 = temp^3)
+test_data <- test_data %>% dplyr::mutate(temp_2 = temp^2, temp_3 = temp^3)
+```
+
+We may try lasso regression as a method for variable selection.
+
+```{r}
+# Splitting train and test sets for glmnet()
+set.seed(1)
+test_data <- test_data %>% dplyr::select(-pred_count)
+X <- model.matrix(cnt ~ . -1, data = train_data)
+X.test <- model.matrix(cnt ~ . -1, data = test_data)
+Y <- train_data$cnt
+Y.test <- test_data$cnt
+# Fit LASSO model
+lasso <- glmnet(X, Y, family = "poisson" , alpha = 1)
+# Cross Validating lambda values
+lasso.cv <- cv.glmnet(X, Y, family = "poisson", alpha = 1)
+# Finding optimal lambda
+optimal <- lasso.cv$lambda.min
+# Fit the optimal lambda model
+lasso.mod <- glmnet(X, Y, family = "poisson", alpha = 1, lambda = optimal)
+
+# Make predictions
+lasso.pred <- predict(lasso, optimal, newx = X.test)
+
+sqrt(mean((lasso.pred-Y.test)^2))
 
 ```
+
+We see a rather large increase in RMSE in this case, suggesting that our original model is not overfitting, however we can check this via cross-validation.
+
+```{r}
+set.seed(1)
+
+# Fit poisson regression model
+model <- glm(cnt ~ .  + weathersit*temp, data = train_data, family = poisson())
+
+# Initialize a vector to store 10 fold CV errors
+cv.error.10 <- rep(0,10)
+
+# Perform 10-fold CV and store errors
+for (i in 1:10) {
+  glm.fit <- glm(cnt ~ .  + weathersit*temp, data = data,
+                 family = poisson())
+  cv.error.10[i] <- cv.glm(data, glm.fit, K = 10)$delta[1]
+}
+
+cat("Root Mean Squared Error (RMSE) for 10-fold CV:", sqrt(mean(cv.error.10)), "\n")
+# Compute LOOCV
+cv.err <- cv.glm(data, glm.fit)
+cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
+```
+
+We compute LOOCV in this case because the dataset is not too large, we see that
+both LOOCV and 10-fold CV are fairly close in RMSE. Finally we will want
+to use bootstrap to create confidence intervals for the model coefficients
+and prediction intervals for the model predicitions.
 
