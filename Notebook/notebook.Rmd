@@ -269,6 +269,7 @@ cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
 # Retrain model using the full data
 
 final.mod <- glm(cnt ~ .  + weathersit*temp, data = data, family = poisson())
+summary(final.mod)
 ```
 
 We compute LOOCV in this case because the dataset is not too large, we see that
