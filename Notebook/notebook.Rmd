@@ -17,7 +17,7 @@ dataset into R as well as load packages for analysis.
 ```{r echo = TRUE, results = 'hide'}
 library(tidyverse)
 library(car)
-library (boot)
+library(boot)
 library(here)
 library(knitr)
 library(glmnet)
@@ -71,8 +71,9 @@ proceed with building a poisson regression model.
 First we can try a basic 80/20 validation and test split and fit the full poisson
 regression model. We make slight adjustments to the features to ensure
 dates are encoded as datetime objects and remove variables like instant which
-just refer to the observation number. Then compute the mean absolute and mean
-square errors on the test data.
+just refer to the observation number, we also remove registered and casual
+since these variables are just leakage of the counts into the predictors.
+Then compute the mean absolute and mean square errors on the test data.
 
 ```{r}
 # Convert date to Date type
@@ -265,10 +266,12 @@ cat("Root Mean Squared Error (RMSE) for 10-fold CV:", sqrt(mean(cv.error.10)), "
 # Compute LOOCV
 cv.err <- cv.glm(data, glm.fit)
 cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
+# Retrain model using the full data
+
+final.mod <- glm(cnt ~ .  + weathersit*temp, data = data, family = poisson())
 ```
 
 We compute LOOCV in this case because the dataset is not too large, we see that
 both LOOCV and 10-fold CV are fairly close in RMSE. Finally we will want
 to use bootstrap to create confidence intervals for the model coefficients
 and prediction intervals for the model predicitions.
-
