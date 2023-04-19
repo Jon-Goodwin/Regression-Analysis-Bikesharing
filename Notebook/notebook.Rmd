@@ -275,4 +275,4 @@ summary(final.mod)
 We compute LOOCV in this case because the dataset is not too large, we see that
 both LOOCV and 10-fold CV are fairly close in RMSE. Finally we will want
 to use bootstrap to create confidence intervals for the model coefficients
-and prediction intervals for the model predicitions.
+and prediction intervals for the model predictions.
