@@ -8,11 +8,6 @@ output:
 knitr::opts_chunk$set(message = F,
                       error = F, warning = F)
 ```
-# Introduction
-
-The purpose of this analysis is to use chatGPT as an assistant to produce a
-predictive model for the bikeshare dataset. First we will import the Bikeshare
-dataset into R as well as load packages for analysis.
 
 ```{r echo = TRUE, results = 'hide'}
 library(tidyverse)
