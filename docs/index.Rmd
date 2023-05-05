@@ -33,7 +33,7 @@ snow/rain. And we have a season variable indicating the 4 different seasons.
 
 ```{r}
 data %>%
-  ggplot(aes(x = cnt)) + geom_histogram(fill = "red", color = "black")
+  ggplot(aes(x = cnt)) + geom_histogram(fill = "green", color = "black")
 ```
 
 The response in this case is a count of bicycles rented for the day. Count data
@@ -86,8 +86,8 @@ data %>%
   group_by(workingday) %>%
   summarize(counts = mean(cnt)) %>%
   ungroup() %>%
-  ggplot(aes(x = workingday, y = counts))+geom_bar(stat = "identity",
-                                                   fill = "red", color = "black") +
+  ggplot(aes(x = workingday, y = counts, fill = workingday))+geom_bar(stat = "identity", color = "black") +
+  theme(legend.position = "none") +
   ylab("Average Bike Rentals") +
   xlab("Working Day") +
   scale_y_continuous(limits = c(0,5000)) +
