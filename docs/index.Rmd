@@ -46,8 +46,8 @@ data$cnt %>% sd()
 data$cnt %>% mean()
 ```
 
-The mean and standard deviation in the sample are close supporting the idea of poisson regression. We can also make a distribution plot of the counts against
-a poisson distribution
+The mean and standard deviation in the sample suggest rather larger overdispersion. Which may indicate that a quasi-poison or negative binomial
+distribution will be better performing then a poisson distribution on this data.
 
 ```{r}
 data %>%
@@ -72,7 +72,8 @@ data %>%
   ggplot(aes(x = mnth, y = counts))+geom_line() +
   xlab("Month") +
   ylab("Average Bikes Rented") +
-  scale_x_continuous(breaks = 1:12, labels = month.name)
+  scale_x_continuous(breaks = 1:12, labels = month.name) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
 As we may expect bike rentals peak in the warmer summer months and decline
@@ -80,9 +81,32 @@ during colder winter months before picking back up again as the seasons change.
 It will be important we capture the cyclical nature of this strong predictor
 for the bike rentals in our model.
 
+Similarly we visualize the days of the week
 ```{r}
 data %>%
-  select(cnt, workingday) %>%
+  group_by(weekday) %>%
+  summarize(counts = mean(cnt)) %>%
+  ungroup() %>%
+  ggplot(aes(x = weekday, y = counts))+geom_line() +
+  xlab("Day") +
+  ylab("Average Bikes Rented") +
+  scale_x_continuous(breaks = c(0,1,2,3,4,5,6), labels = c("Mon", "Tues",
+                                                         "Wed", "Thur", "Fri", "Sat", "Sun")) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
+```
+
+Its interesting that the later days of the week appear to be more popular for renting a bike. We can get a precise look at that count:
+
+```{r}
+data %>%
+  group_by(weekday) %>%
+  summarize(n = sum(cnt))
+```
+
+
+```{r}
+data %>%
+  dplyr::select(cnt, workingday) %>%
   group_by(workingday) %>%
   summarize(counts = mean(cnt)) %>%
   ungroup() %>%
@@ -95,8 +119,22 @@ data %>%
 ```
 
 We see little difference in the average rentals on working days as non working
-days. This suggests that this predictor will not be a strong indicator in our model
-for predicting the number of bikes rented.
+days. This suggests that this predictor will not be a strong indicator in our model for predicting the number of bikes rented.
+
+We now visualize some of the continuous variables present in the data and their
+relationship with rental counts.
+
+```{r}
+ggplot_helper <- function(data, x){
+  ggplot(data = data, aes(x = {{x}}, y = cnt)) + geom_point()+
+  ylab("Rentals")
+}
+ggplot_helper(data, x = hum)
+ggplot_helper(data, temp)
+ggplot_helper(data, windspeed)
+```
+
+
 
 # Model Building
 
@@ -105,7 +143,7 @@ regression model. We make slight adjustments to the features to ensure
 dates are encoded as datetime objects and remove variables like instant which
 just refer to the observation number, we also remove registered and casual
 since these variables are just leakage of the counts into the predictors.
-Then compute the mean absolute and mean square errors on the test data.
+Then compute the mean square errors on the test data.
 
 ```{r}
 # Convert date to Date type
@@ -114,6 +152,8 @@ data$date <- as.Date(data$dteday)
 # Remove unnecessary columns
 data <- data %>% dplyr::select(-instant, -dteday, -casual, -registered)
 ```
+
+We convert dteday to a datetime column and remove casual and registered as those are simply leakage variables that directly correlate with the rental count.
 
 ```{r}
 
@@ -124,28 +164,32 @@ train_data <- data[train_indices,]
 test_data <- data[-train_indices,]
 
 # Fit Poisson regression model
-model <- glm(cnt ~ ., data = train_data, family = poisson())
+model <- glm(cnt ~ ., data = train_data, family = "poisson")
 summary(model)
+
+lm.fit <- lm(cnt ~ ., data = train_data)
 
 # Make predictions
 test_data$pred_count <- predict(model, newdata = test_data, type = "response")
-
-# Calculate mean absolute error (MAE)
-mae <- mean(abs(test_data$cnt - test_data$pred_count))
-cat("Mean Absolute Error (MAE):", mae, "\n")
+test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
 
 # Calculate root mean squared error (RMSE)
 rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
 cat("Root Mean Squared Error (RMSE):", rmse, "\n")
 
+rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
+cat("Root Mean Squared Error of LM (RMSE):", rmse_lm, "\n")
+
+test_data <- test_data %>% dplyr::select(-pred_count, -pred_count_lm)
 ```
 
-Next we will do some additional feature engineering. We will encode the datetime
-as a cyclical variable using sine and cosine functions. This will establish that
-for instance January is closer to December then it is to April.
+Currently we see the linear regression model actually outperforming the poisson
+regression, which should suggest a problem as our count data naturally is better
+suited to the poisson distriubtion. We will do some additional feature engineering. We will encode the datetime as a cyclical variable using sine and cosine functions. This will establish that for instance January is closer to December then it is to April.
 
 
 ```{r}
+#cyclical encoding of mnth, weekday
 train_data$mnth_sin <- sin(2 * pi * train_data$mnth / 12)
 train_data$mnth_cos <- cos(2 * pi * train_data$mnth / 12)
 
@@ -165,31 +209,32 @@ data$weekday_sin <- sin(2 * pi * data$weekday / 7)
 data$weekday_cos <- cos(2 * pi * data$weekday / 7)
 ```
 
-We also have some interactions among these predictors, for example the combination of cold temperatures and rain/snow is probably less desirable then just a cold or
-just a rainy day for riding a bike. We'll also add non linear terms for the continuous variables such as temperature, humidity, and windspeed. And remove
-atemp, season, registered and casual. Since atemp and season should be captured
-by the temp and date/month predictors and registered, casual are just 2 parts of
-the response.
+We also have some interactions among these predictors, for example the combination of cold temperatures and rain/snow is probably less desirable then just a cold or just a rainy day for riding a bike. We'll also add non linear terms for the continuous variables such as temperature, humidity, and windspeed. 
 
 ```{r}
 # Fit Poisson regression model
 model <- glm(cnt ~ . + weathersit*temp, data = train_data, family = poisson())
 summary(model)
+
+lm.fit <- lm(cnt ~ . + weathersit*temp, data = train_data)
+
 # Make predictions
 test_data$pred_count <- predict(model, newdata = test_data, type = "response")
-
-# Calculate mean absolute error (MAE)
-mae <- mean(abs(test_data$cnt - test_data$pred_count))
-cat("Mean Absolute Error (MAE):", mae, "\n")
+test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
 
 # Calculate root mean squared error (RMSE)
 rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
 cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
+cat("Root Mean Squared Error of LM (RMSE):", rmse_lm, "\n")
+
+test_data <- test_data %>% select(-pred_count, -pred_count_lm)
 ```
 
-We get a slight decrease in both the absolute and square error in the test. We
-can now test create some additional features with the model through the residual
-plots.
+We get a slight decrease in the square error in the test. We now will try
+analyzing the residuals to see if there are some higher order relationships
+that the model does not currently capture.
 
 ```{r}
 # Creating a dataframe containing residuals and fitted values
@@ -201,61 +246,101 @@ ggplot(df, aes(x = .fitted, y = .resid/sqrt(.fitted))) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   labs(title = "Residuals vs. Fitted Values", x = "Fitted Values", y = "Pearson Residuals")
 
-# Residuals vs. continuous predictors
-resid.check <- function(data, mapping) {
-  ggplot(data, mapping) +
+# Residuals vs. continuous predictors fucntion helper
+resid.check <- function(data, x, y) {
+  ggplot(data, aes(x = {{x}}, y = {{y}})) +
     geom_point(alpha = 0.5) +
     geom_hline(yintercept = 0, linetype = "dashed") +
-    labs(title = "Residuals Plot", x = "", y = "Pearson Residuals") +
+    labs(title = "Residuals Plot", y = "Pearson Residuals") +
     geom_smooth()
 }
-resid.check(df, aes(x = temp, y = .resid/sqrt(.fitted)))
-resid.check(df, aes(x = hum, y = .resid/sqrt(.fitted)))
-resid.check(df, aes(x = windspeed, y = .resid/sqrt(.fitted)))
+resid.check(df, temp, y = .resid/sqrt(.fitted))
+resid.check(df, x = hum, y = .resid/sqrt(.fitted))
+resid.check(df, x = windspeed, y = .resid/sqrt(.fitted))
 ```
 
 We check our continuous predictors and find a definite pattern within the temp
-predictor, suggesting there is a relationship not being captured by the model.
-We can adjust for this by adding transformations of temp.
+predictor and the hum predictor, suggesting there is a relationship not being captured by the model.
+
+We can adjust for this by adding non linear transformations of temp and hum.
 
 ```{r}
 # Fit Poisson regression model
-model <- glm(cnt ~ . - temp + weathersit*temp + poly(temp,3), data = train_data, family = poisson())
-summary(model)
+model <- glm(cnt ~ . - temp + weathersit*temp + poly(temp,3) - hum + poly(hum,4), data = train_data, family = poisson())
+
+lm.fit <- lm(cnt ~ . - temp + weathersit*temp + poly(temp,3) - hum + poly(hum,4), data = train_data)
 # Make predictions
 test_data$pred_count <- predict(model, newdata = test_data, type = "response")
-
-# Calculate mean absolute error (MAE)
-mae <- mean(abs(test_data$cnt - test_data$pred_count))
-cat("Mean Absolute Error (MAE):", mae, "\n")
+test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
 
 # Calculate root mean squared error (RMSE)
 rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
 cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
+cat("Root Mean Squared Error (RMSE):", rmse_lm, "\n")
+
+test_data <- test_data %>% dplyr::select(-pred_count)
 ```
 
-We see another reduction in error on the test set. We can check the residual
-plots again.
+We see significant reductions in RMSE for both models however the particularly
+in the poisson model which now performs better then the linear regression model
+as we had expected. We can check the residual plots again with this new model.
 
 ```{r}
+#Checking residual values after adjusting model for nonlinear values
+
 df <- broom::augment(model)
-resid.check(df, aes(x = temp, y = .resid/sqrt(.fitted)))
+
+resid.check(df, x = temp, y = .resid/sqrt(.fitted))
+resid.check(df, x = hum, y = .resid/sqrt(.fitted))
 ```
 
 Now we get a much more randomly scattered plot of the residuals after the
-transformation. We can add these additional predictors directly into the dataset
+transformations. We can add these additional predictors directly into the dataset.
 
 ```{r}
+#Creating polynomial terms for temp
 train_data <- train_data %>% dplyr::mutate(temp_2 = temp^2, temp_3 = temp^3)
 test_data <- test_data %>% dplyr::mutate(temp_2 = temp^2, temp_3 = temp^3)
+
+#Creating polynomial terms for hum
+train_data <- train_data %>% dplyr::mutate(hum_2 = hum^2, hum_3 = hum^3, hum_4 = hum^4)
+test_data <- test_data %>% dplyr::mutate(hum_2 = hum^2, hum_3 = hum^3, hum_4 = hum^4)
 ```
 
-We may try lasso regression as a method for variable selection.
+We now refit the model.
+
+```{r}
+# Fit Poisson regression model
+model <- glm(cnt ~ . - temp + weathersit*temp, data = train_data, family = poisson())
+summary(model)
+
+lm.fit <- lm(cnt ~ . - temp + weathersit*temp, data = train_data)
+
+# Make predictions
+test_data$pred_count <- predict(model, newdata = test_data, type = "response")
+test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
+
+# Calculate root mean squared error (RMSE)
+rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
+cat("Root Mean Squared Error of LM (RMSE):", rmse_lm, "\n")
+
+test_data <- test_data %>% dplyr::select(-pred_count, -pred_count_lm)
+```
+
+
+We may try lasso regression as a method for variable selection. If dimension
+reduction would improve this model we should see this method reduce RMSE. However
+due to the overall size of this model still being relatively small relative to
+the sample size it's unlikely to be the case.
 
 ```{r}
 # Splitting train and test sets for glmnet()
 set.seed(1)
-test_data <- test_data %>% dplyr::select(-pred_count)
 X <- model.matrix(cnt ~ . -1, data = train_data)
 X.test <- model.matrix(cnt ~ . -1, data = test_data)
 Y <- train_data$cnt
@@ -272,7 +357,7 @@ lasso.mod <- glmnet(X, Y, family = "poisson", alpha = 1, lambda = optimal)
 # Make predictions
 lasso.pred <- predict(lasso, optimal, newx = X.test)
 
-sqrt(mean((lasso.pred-Y.test)^2))
+cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(mean((lasso.pred-Y.test)^2)), "\n")
 
 ```
 
@@ -282,29 +367,20 @@ We see a rather large increase in RMSE in this case, suggesting that our origina
 set.seed(1)
 
 # Fit poisson regression model
-model <- glm(cnt ~ .  + weathersit*temp, data = train_data, family = poisson())
+glm.fit <- glm(cnt ~ .  + weathersit*temp, data = data,
+                 family = poisson())
 
 # Initialize a vector to store 10 fold CV errors
 cv.error.10 <- rep(0,10)
 
 # Perform 10-fold CV and store errors
 for (i in 1:10) {
-  glm.fit <- glm(cnt ~ .  + weathersit*temp, data = data,
-                 family = poisson())
   cv.error.10[i] <- cv.glm(data, glm.fit, K = 10)$delta[1]
 }
 
-cat("Root Mean Squared Error (RMSE) for 10-fold CV:", sqrt(mean(cv.error.10)), "\n")
 # Compute LOOCV
 cv.err <- cv.glm(data, glm.fit)
 cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
-# Retrain model using the full data
-
-final.mod <- glm(cnt ~ .  + weathersit*temp, data = data, family = poisson())
-summary(final.mod)
 ```
 
-We compute LOOCV in this case because the dataset is not too large, we see that
-both LOOCV and 10-fold CV are fairly close in RMSE. Finally we will want
-to use bootstrap to create confidence intervals for the model coefficients
-and prediction intervals for the model predictions.
+We compute LOOCV in this case because the dataset is not too large. 
