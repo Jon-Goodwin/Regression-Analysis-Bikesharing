@@ -14,8 +14,14 @@ library(tidyverse)
 library(car)
 library(boot)
 library(here)
+library(randomForest)
+library(e1071)
 library(knitr)
 library(glmnet)
+library(MASS)
+library(gbm)
+library(cowplot)
+library(caret)
 data <- read_csv(here("inputs\\day.csv"))
 ```
 
@@ -33,7 +39,7 @@ snow/rain. And we have a season variable indicating the 4 different seasons.
 
 ```{r}
 data %>%
-  ggplot(aes(x = cnt)) + geom_histogram(fill = "green", color = "black")
+  ggplot(aes(x = cnt)) + geom_histogram(fill = "#fdbb84", color = "black")
 ```
 
 The response in this case is a count of bicycles rented for the day. Count data
@@ -63,18 +69,16 @@ proceed with building a poisson regression model.
 
 Now lets look at how some of our predictors relate to the number of bikes rented.
 
-
 ```{r}
 data %>%
-  group_by(mnth) %>%
-  summarize(counts = mean(cnt)) %>%
-  ungroup() %>%
-  ggplot(aes(x = mnth, y = counts))+geom_line() +
+  mutate(month = fct_reorder(as.factor(month.name[mnth]), mnth)) %>%
+  ggplot(aes(x = month, fill = month, y = cnt))+geom_boxplot() +
   xlab("Month") +
-  ylab("Average Bikes Rented") +
-  scale_x_continuous(breaks = 1:12, labels = month.name) +
+  ylab("Bikes Rented") +
+  theme(legend.pos = 'none')+
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
+
 
 As we may expect bike rentals peak in the warmer summer months and decline
 during colder winter months before picking back up again as the seasons change.
@@ -83,26 +87,27 @@ for the bike rentals in our model.
 
 Similarly we visualize the days of the week
 ```{r}
-data %>%
-  group_by(weekday) %>%
-  summarize(counts = mean(cnt)) %>%
-  ungroup() %>%
-  ggplot(aes(x = weekday, y = counts))+geom_line() +
-  xlab("Day") +
-  ylab("Average Bikes Rented") +
-  scale_x_continuous(breaks = c(0,1,2,3,4,5,6), labels = c("Mon", "Tues",
-                                                         "Wed", "Thur", "Fri", "Sat", "Sun")) +
+df.1 <- data
+df.1$weekday <- factor(df.1$weekday, levels=0:6,
+                      labels=c("Monday", "Tuesday", "Wednesday",
+                               "Thursday", "Friday", "Saturday", "Sunday"))
+df.1 %>%
+  ggplot(aes(x = weekday, fill = weekday, y = cnt))+geom_boxplot() +
+  xlab("Month") +
+  ylab("Bikes Rented") +
+  theme(legend.pos = 'none')+
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 ```
 
-Its interesting that the later days of the week appear to be more popular for renting a bike. We can get a precise look at that count:
+We don't see any particular day being significantly more popular for renting a bike then the others. We can get a precise look at that count:
 
 ```{r}
-data %>%
+df.1 %>%
   group_by(weekday) %>%
   summarize(n = sum(cnt))
 ```
 
+We can again take a closer look just by comparing working and non working days.
 
 ```{r}
 data %>%
@@ -126,19 +131,18 @@ relationship with rental counts.
 
 ```{r}
 ggplot_helper <- function(data, x){
-  ggplot(data = data, aes(x = {{x}}, y = cnt)) + geom_point()+
+  ggplot(data = data, aes(x = {{x}}, y = cnt)) + geom_point(color = "#2b8cbe")+
   ylab("Rentals")
 }
-ggplot_helper(data, x = hum)
-ggplot_helper(data, temp)
-ggplot_helper(data, windspeed)
+
+plot_grid(ggplot_helper(data, x = hum), ggplot_helper(data, temp),ggplot_helper(data, windspeed), labels = "")
 ```
 
-
+Though the relationship between temp and rental count seems almost linear, it is clear that we may have some non linear relationships present in these predictors.
 
 # Model Building
 
-First we can try a basic 80/20 validation and test split and fit the full poisson
+First we can try fitting both a linnear regression and poisson
 regression model. We make slight adjustments to the features to ensure
 dates are encoded as datetime objects and remove variables like instant which
 just refer to the observation number, we also remove registered and casual
@@ -151,37 +155,43 @@ data$date <- as.Date(data$dteday)
 
 # Remove unnecessary columns
 data <- data %>% dplyr::select(-instant, -dteday, -casual, -registered)
-```
 
-We convert dteday to a datetime column and remove casual and registered as those are simply leakage variables that directly correlate with the rental count.
-
-```{r}
-
-# Split the data into training and testing sets
+# Split the data into training and testing sets for glmnet()
 set.seed(1)
 train_indices <- sample(1:nrow(data), size = 0.8 * nrow(data))
 train_data <- data[train_indices,]
 test_data <- data[-train_indices,]
-
-# Fit Poisson regression model
-model <- glm(cnt ~ ., data = train_data, family = "poisson")
-summary(model)
-
-lm.fit <- lm(cnt ~ ., data = train_data)
-
-# Make predictions
-test_data$pred_count <- predict(model, newdata = test_data, type = "response")
-test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
-
-# Calculate root mean squared error (RMSE)
-rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
-cat("Root Mean Squared Error (RMSE):", rmse, "\n")
-
-rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
-cat("Root Mean Squared Error of LM (RMSE):", rmse_lm, "\n")
-
-test_data <- test_data %>% dplyr::select(-pred_count, -pred_count_lm)
 ```
+
+
+```{r}
+
+set.seed(1)
+
+# Fit poisson regression model
+glm.fit <- glm(cnt ~ ., data = data,
+                 family = poisson())
+
+lm.fit <- glm(cnt ~., data = data)
+
+# Initialize a vector to store 10 fold CV errors
+cv.error.10 <- rep(0,10)
+
+# Perform 10-fold CV and store errors
+for (i in 1:10) {
+  cv.error.10[i] <- cv.glm(data, glm.fit, K = 10)$delta[1]
+}
+
+#Compute and report 10 fold CV-error
+cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(mean(cv.error.10)), "\n")
+# Compute LOOCV
+cv.err <- cv.glm(data, glm.fit)
+cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
+cv.err_lm <- cv.glm(data, lm.fit)
+cat("Root Mean Squared Error of LM (RMSE) for LOOCV:", sqrt(cv.err_lm$delta[1]), "\n")
+```
+
+We will only compute the LOOCV RMSE from here on since the model is not particularly large and so LOOCV computes relatively quickly.
 
 Currently we see the linear regression model actually outperforming the poisson
 regression, which should suggest a problem as our count data naturally is better
@@ -190,46 +200,30 @@ suited to the poisson distriubtion. We will do some additional feature engineeri
 
 ```{r}
 #cyclical encoding of mnth, weekday
-train_data$mnth_sin <- sin(2 * pi * train_data$mnth / 12)
-train_data$mnth_cos <- cos(2 * pi * train_data$mnth / 12)
-
-train_data$weekday_sin <- sin(2 * pi * train_data$weekday / 7)
-train_data$weekday_cos <- cos(2 * pi * train_data$weekday / 7)
-
-test_data$mnth_sin <- sin(2 * pi * test_data$mnth / 12)
-test_data$mnth_cos <- cos(2 * pi * test_data$mnth / 12)
-
-test_data$weekday_sin <- sin(2 * pi * test_data$weekday / 7)
-test_data$weekday_cos <- cos(2 * pi * test_data$weekday / 7)
-
 data$mnth_sin <- sin(2 * pi * data$mnth / 12)
 data$mnth_cos <- cos(2 * pi * data$mnth / 12)
 
 data$weekday_sin <- sin(2 * pi * data$weekday / 7)
 data$weekday_cos <- cos(2 * pi * data$weekday / 7)
+
+train_data <- data[train_indices,]
+test_data <- data[-train_indices,]
 ```
 
 We also have some interactions among these predictors, for example the combination of cold temperatures and rain/snow is probably less desirable then just a cold or just a rainy day for riding a bike. We'll also add non linear terms for the continuous variables such as temperature, humidity, and windspeed. 
 
 ```{r}
+set.seed(1)
 # Fit Poisson regression model
-model <- glm(cnt ~ . + weathersit*temp, data = train_data, family = poisson())
-summary(model)
+model <- glm(cnt ~ . + weathersit*temp, data = data, family = poisson())
 
-lm.fit <- lm(cnt ~ . + weathersit*temp, data = train_data)
+lm.fit <- glm(cnt ~ . + weathersit*temp, data = data)
 
-# Make predictions
-test_data$pred_count <- predict(model, newdata = test_data, type = "response")
-test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
-
-# Calculate root mean squared error (RMSE)
-rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
-cat("Root Mean Squared Error (RMSE):", rmse, "\n")
-
-rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
-cat("Root Mean Squared Error of LM (RMSE):", rmse_lm, "\n")
-
-test_data <- test_data %>% select(-pred_count, -pred_count_lm)
+# Compute LOOCV
+cv.err <- cv.glm(data, model)
+cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
+cv.err_lm <- cv.glm(data, lm.fit)
+cat("Root Mean Squared Error of LM (RMSE) for LOOCV:", sqrt(cv.err_lm$delta[1]), "\n")
 ```
 
 We get a slight decrease in the square error in the test. We now will try
@@ -266,26 +260,19 @@ We can adjust for this by adding non linear transformations of temp and hum.
 
 ```{r}
 # Fit Poisson regression model
-model <- glm(cnt ~ . - temp + weathersit*temp + poly(temp,3) - hum + poly(hum,4), data = train_data, family = poisson())
+model <- glm(cnt ~ . - temp + weathersit*temp + poly(temp,3) - hum + poly(hum,4), data = data, family = poisson())
 
-lm.fit <- lm(cnt ~ . - temp + weathersit*temp + poly(temp,3) - hum + poly(hum,4), data = train_data)
-# Make predictions
-test_data$pred_count <- predict(model, newdata = test_data, type = "response")
-test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
+lm.fit <- glm(cnt ~ . - temp + weathersit*temp + poly(temp,3) - hum + poly(hum,4), data = data)
 
-# Calculate root mean squared error (RMSE)
-rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
-cat("Root Mean Squared Error (RMSE):", rmse, "\n")
-
-rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
-cat("Root Mean Squared Error (RMSE):", rmse_lm, "\n")
-
-test_data <- test_data %>% dplyr::select(-pred_count)
+# Compute LOOCV
+cv.err <- cv.glm(data, model)
+cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
+cv.err_lm <- cv.glm(data, lm.fit)
+cat("Root Mean Squared Error of LM (RMSE) for LOOCV:", sqrt(cv.err_lm$delta[1]), "\n")
 ```
 
 We see significant reductions in RMSE for both models however the particularly
-in the poisson model which now performs better then the linear regression model
-as we had expected. We can check the residual plots again with this new model.
+in the poisson model which now performs slightly better then the linear regression model as we had expected. We can check the residual plots again with this new model.
 
 ```{r}
 #Checking residual values after adjusting model for nonlinear values
@@ -301,35 +288,25 @@ transformations. We can add these additional predictors directly into the datase
 
 ```{r}
 #Creating polynomial terms for temp
-train_data <- train_data %>% dplyr::mutate(temp_2 = temp^2, temp_3 = temp^3)
-test_data <- test_data %>% dplyr::mutate(temp_2 = temp^2, temp_3 = temp^3)
+data <- data %>% dplyr::mutate(temp_2 = temp^2, temp_3 = temp^3)
 
 #Creating polynomial terms for hum
-train_data <- train_data %>% dplyr::mutate(hum_2 = hum^2, hum_3 = hum^3, hum_4 = hum^4)
-test_data <- test_data %>% dplyr::mutate(hum_2 = hum^2, hum_3 = hum^3, hum_4 = hum^4)
+data <- data %>% dplyr::mutate(hum_2 = hum^2, hum_3 = hum^3, hum_4 = hum^4)
+
+#Adding to train-test splits
+train_data <- data[train_indices,]
+test_data <- data[-train_indices,]
 ```
 
 We now refit the model.
 
 ```{r}
 # Fit Poisson regression model
-model <- glm(cnt ~ . - temp + weathersit*temp, data = train_data, family = poisson())
-summary(model)
+model <- glm(cnt ~ . - temp + weathersit*temp, data = data, family = poisson())
 
-lm.fit <- lm(cnt ~ . - temp + weathersit*temp, data = train_data)
-
-# Make predictions
-test_data$pred_count <- predict(model, newdata = test_data, type = "response")
-test_data$pred_count_lm <- predict(lm.fit, newdata = test_data, type = "response")
-
-# Calculate root mean squared error (RMSE)
-rmse <- sqrt(mean((test_data$cnt - test_data$pred_count)^2))
-cat("Root Mean Squared Error (RMSE):", rmse, "\n")
-
-rmse_lm <- sqrt(mean((test_data$cnt - test_data$pred_count_lm)^2))
-cat("Root Mean Squared Error of LM (RMSE):", rmse_lm, "\n")
-
-test_data <- test_data %>% dplyr::select(-pred_count, -pred_count_lm)
+# Compute LOOCV
+cv.err <- cv.glm(data, model)
+cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
 ```
 
 
@@ -339,7 +316,7 @@ due to the overall size of this model still being relatively small relative to
 the sample size it's unlikely to be the case.
 
 ```{r}
-# Splitting train and test sets for glmnet()
+#Create model matrix
 set.seed(1)
 X <- model.matrix(cnt ~ . -1, data = train_data)
 X.test <- model.matrix(cnt ~ . -1, data = test_data)
@@ -361,26 +338,134 @@ cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(mean((lasso.pred-Y.test)^2
 
 ```
 
-We see a rather large increase in RMSE in this case, suggesting that our original model is not overfitting, however we can check this via cross-validation.
+We now may select some other models to test against the poisson regression. Of particular interest should be negative binomial regression and quasi poisson regression, since we observed evidence of overdispersion.
 
 ```{r}
 set.seed(1)
 
 # Fit poisson regression model
-glm.fit <- glm(cnt ~ .  + weathersit*temp, data = data,
-                 family = poisson())
+glm.fit <- glm.nb(cnt ~ .  + weathersit*temp, data = data)
 
-# Initialize a vector to store 10 fold CV errors
-cv.error.10 <- rep(0,10)
-
-# Perform 10-fold CV and store errors
-for (i in 1:10) {
-  cv.error.10[i] <- cv.glm(data, glm.fit, K = 10)$delta[1]
-}
 
 # Compute LOOCV
 cv.err <- cv.glm(data, glm.fit)
 cat("Root Mean Squared Error (RMSE) for LOOCV:", sqrt(cv.err$delta[1]), "\n")
 ```
 
-We compute LOOCV in this case because the dataset is not too large. 
+We see that the negative binomial model slightly underperforms the already fitted poisson model. We may seek further improvements through highly non linear methods such as gradient boosting.
+
+```{r}
+set.seed(1)
+
+gbm_model <- gbm(cnt ~ .-date,data = train_data ,  distribution = "gaussian",
+                 n.trees = 1000,
+                 interaction.depth = 3,
+                 shrinkage = 0.01,
+                 n.minobsinnode = 10,
+                 cv.folds = 10,
+                 verbose = FALSE)
+optimal_trees <- gbm.perf(gbm_model, method = "cv")
+predictions_1 <- predict(gbm_model, newdata = test_data, n.trees = optimal_trees)
+performance <- postResample(predictions_1, test_data$cnt)
+print(performance)
+```
+
+```{r}
+library(ggplot2)
+
+pred_vs_true <- data.frame(Predicted = predictions_1, True = test_data$cnt)
+ggplot(pred_vs_true, aes(x = True, y = Predicted)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "GBM Model: Predicted vs. True Bike Rentals",
+       x = "True Bike Rentals",
+       y = "Predicted Bike Rentals") +
+  theme_minimal()
+```
+We find the gradient boosting method to perform the best of our models so far, we can continue applying SVM and randomForest
+
+```{r}
+set.seed(1)
+# Normalizing train and test split
+preprocess_params <- preProcess(train_data[, -which(names(train_data) == "cnt")], method = c("center", "scale"))
+
+train_data_scaled <- predict(preprocess_params, train_data)
+test_data_scaled <- predict(preprocess_params, test_data)
+test_data_scaled$cnt <- test_data$cnt
+
+# Training model with svm()
+svm_model <- svm(cnt ~ .,
+                 data = train_data_scaled,
+                 kernel = "radial",
+                 cost = 1,
+                 gamma = 0.1,
+                 epsilon = 0.1)
+
+# Computing error rates
+predictions <- predict(svm_model, newdata = test_data_scaled)
+performance <- postResample(predictions, test_data_scaled$cnt)
+print(performance)
+```
+
+```{r}
+library(ggplot2)
+
+pred_vs_true <- data.frame(Predicted = predictions, True = test_data_scaled$cnt)
+ggplot(pred_vs_true, aes(x = True, y = Predicted)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "SVM Model: Predicted vs. True Bike Rentals",
+       x = "True Bike Rentals",
+       y = "Predicted Bike Rentals") +
+  theme_minimal()
+```
+
+Now we use the random forest method
+
+```{r}
+set.seed(1)
+
+# Defining Control Parameters
+control_rfe <- rfeControl(functions = rfFuncs,
+                          method = "cv",
+                          number = 5,
+                          verbose = FALSE)
+
+# Defining Predictors
+predictors <- names(train_data[, !(names(train_data) %in% c("cnt"))])
+
+# Run RFE
+rfe_result <- rfe(train_data[, predictors],
+                  train_data$cnt,
+                  sizes = c(1:10),
+                  rfeControl = control_rfe)
+print(rfe_result)
+
+best_features <- predictors[rfe_result$optVariables]
+
+# Train the final model with the selected features
+model <- randomForest(cnt ~ ., data = train_data[, c("cnt", rfe_result$optVariables)])
+
+# Evaluate the model performance on the test dataset
+predictions_2 <- predict(model, newdata = test_data[, rfe_result$optVariables])
+performance <- postResample(predictions, test_data$cnt)
+print(performance)
+```
+
+```{r}
+library(ggplot2)
+
+pred_vs_true <- data.frame(Predicted = predictions_2, True = test_data$cnt)
+ggplot(pred_vs_true, aes(x = True, y = Predicted)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "Random Forest Model: Predicted vs. True Bike Rentals",
+       x = "True Bike Rentals",
+       y = "Predicted Bike Rentals") +
+  theme_minimal()
+```
+
+Both the SVM and random forest fail to outperform the poisson regression model.
+And since these models are less interpretable and take longer to train it's clear they are poor choices.
+
+The GBM model however performs better then the poisson method and appears to be the best performing method of prediction overall. 
